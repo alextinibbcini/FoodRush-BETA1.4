@@ -512,7 +512,7 @@
   function tick(){
     if(!running) return;
     if(!busy){
-      timeLeft -= 0.05;
+      timeLeft -= 0.09 + Math.min(0.03, level*0.004);
       const pct = Math.max(0,timeLeft/maxTime);
       timerbar.style.width = (pct*100)+'%';
       timerbar.style.background = pct<0.25 ? 'var(--danger)' : 'var(--accent)';
