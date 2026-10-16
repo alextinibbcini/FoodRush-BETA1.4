@@ -440,7 +440,7 @@
     levelEl.textContent = 'Nivel '+level;
     if(tier>lastTier && lastTier>=0) toast('🔥 ¡Nivel '+level+'! más ingredientes y menos tiempo');
     lastTier = tier;
-    maxTime = (1.7 + order.length*Math.max(1,1.9-tier*0.07)) * (vip?0.85:1);
+    maxTime = (1.7 + order.length*Math.max(1,1.9-tier*0.07) + Math.max(0,order.length-4)*0.8) * (vip?0.85:1);
     timeLeft = maxTime;
     busy = false;
     beep(vip?880:660, vip?0.18:0.12, vip?'triangle':'sine');
