@@ -45,9 +45,9 @@
 
   #order-panel { align-self:center; background:var(--panel); border:2px solid var(--border);
     border-radius:14px; padding:7px 14px; display:flex; gap:6px; align-items:center;
-    box-shadow:0 4px 14px rgba(0,0,0,.15); min-height:40px; }
+    box-shadow:0 4px 14px rgba(0,0,0,.15); min-height:40px; flex-wrap:wrap; justify-content:center; max-width:94vw; }
   .cust-avatar { font-size:24px; margin-right:2px; }
-  .order-item { font-size:26px; opacity:.35; transition:opacity .15s, transform .15s; }
+  .order-item { font-size:22px; opacity:.35; transition:opacity .15s, transform .15s; }
   .order-item.done { opacity:1; transform:scale(1.15); }
 
   #toast { position:fixed; left:50%; top:112px; transform:translate(-50%,-8px); z-index:15;
@@ -57,8 +57,8 @@
 
   #ingredients { position:fixed; left:0; right:0; bottom:0; z-index:10;
     padding:10px 10px calc(env(safe-area-inset-bottom,0px) + 14px);
-    display:grid; grid-template-columns: repeat(4,1fr); gap:8px; }
-  .ing-btn { font-size:28px; padding:10px 0; border-radius:14px;
+    display:grid; grid-template-columns: repeat(5,1fr); gap:7px; }
+  .ing-btn { font-size:26px; padding:8px 0; border-radius:14px;
     background:var(--panel); border:2px solid var(--border); box-shadow:0 3px 0 var(--border); }
   .ing-btn:active { transform:translateY(2px); box-shadow:0 1px 0 var(--border); }
 
@@ -95,7 +95,7 @@
 <div id="overlay">
   <div id="overlay-card">
     <h1>👨‍🍳 Chef Contrarreloj 3D</h1>
-    <p>Arma el plato que pide cada cliente antes de que se le acabe la paciencia. Los clientes VIP 👑 pagan el doble, pero aguantan menos. ¡Tienes 3 vidas!</p>
+    <p>Arma el plato que pide cada cliente antes de que se le acabe la paciencia. Los clientes VIP 👑 pagan el doble, pero aguantan menos. Los pedidos crecen poco a poco con cada nivel. ¡Tienes 3 vidas!</p>
     <button id="startBtn">Empezar a cocinar</button>
     <div class="best" id="bestScore"></div>
   </div>
@@ -113,6 +113,7 @@
     {id:'pan', emoji:'🍞'}, {id:'tomate', emoji:'🍅'}, {id:'queso', emoji:'🧀'},
     {id:'lechuga', emoji:'🥬'}, {id:'carne', emoji:'🥩'}, {id:'huevo', emoji:'🥚'},
     {id:'pepino', emoji:'🥒'}, {id:'pimiento', emoji:'🫑'},
+    {id:'cebolla', emoji:'🧅'}, {id:'pollo', emoji:'🍗'},
   ];
 
   const wrap = document.getElementById('canvas-wrap');
@@ -124,23 +125,32 @@
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(innerWidth, innerHeight);
   wrap.appendChild(renderer.domElement);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene.add(new THREE.HemisphereLight(0xfff2e0, 0x3a2410, 1.1));
   const dl = new THREE.DirectionalLight(0xffffff, 0.9);
   dl.position.set(4,8,5);
+  dl.castShadow = true; dl.shadow.mapSize.set(1024,1024);
+  Object.assign(dl.shadow.camera,{left:-9,right:9,top:6,bottom:-6,near:1,far:25});
+  dl.shadow.bias = -0.0005;
   scene.add(dl);
 
-  const counter = new THREE.Mesh(new THREE.BoxGeometry(14,0.6,4), new THREE.MeshStandardMaterial({color:0xb45309}));
-  counter.position.y = -1.3;
+  const counter = new THREE.Mesh(new THREE.BoxGeometry(14,0.6,4), new THREE.MeshStandardMaterial({color:0xb45309,roughness:0.6}));
+  counter.position.y = -1.3; counter.receiveShadow = true;
   scene.add(counter);
-
-  // ---- plate (replaces the old pot) ----
+  for(let i=-3;i<=3;i++){
+    const pl = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.01,4), new THREE.MeshStandardMaterial({color:0x8a3f07}));
+    pl.position.set(i*2,-0.995,0); scene.add(pl);
+  }
   const plate = new THREE.Group();
-  const plateBase = new THREE.Mesh(new THREE.CylinderGeometry(1.15,1.05,0.12,28), new THREE.MeshStandardMaterial({color:0xfffaf0, roughness:0.3}));
-  const plateRim = new THREE.Mesh(new THREE.TorusGeometry(1.1,0.07,10,28), new THREE.MeshStandardMaterial({color:0xf4ede0, roughness:0.3}));
-  plateRim.rotation.x = Math.PI/2; plateRim.position.y = 0.05;
-  plate.add(plateBase, plateRim);
-  plate.position.set(0,-0.95,1.4);
+  const pb = new THREE.Mesh(new THREE.LatheGeometry([[0,0],[0.55,0],[0.7,0.05],[1.1,0.14],[1.2,0.18],[1.17,0.2],[1.05,0.17],[0.7,0.08],[0,0.06]].map(p=>new THREE.Vector2(p[0],p[1])),48),
+    new THREE.MeshStandardMaterial({color:0xfffaf0,roughness:0.25,metalness:0.05,side:THREE.DoubleSide}));
+  pb.castShadow = pb.receiveShadow = true;
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.98,0.02,8,48), new THREE.MeshStandardMaterial({color:0x2563eb,roughness:0.4}));
+  ring.rotation.x = Math.PI/2; ring.position.y = 0.15;
+  plate.add(pb,ring);
+  plate.position.set(0,-1.0,1.4);
   scene.add(plate);
   const plateGlow = new THREE.PointLight(0xffd27a,0,4);
   plateGlow.position.set(0,0.4,1.4);
@@ -148,44 +158,91 @@
 
   // ---- detailed ingredient models ----
   function addPart(g,geo,color,x,y,z,rx,ry,rz,sx,sy,sz){
-    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:color, roughness:0.55}));
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({color:color, roughness:0.55, side:THREE.DoubleSide}));
     m.position.set(x||0,y||0,z||0);
     if(rx||ry||rz) m.rotation.set(rx||0,ry||0,rz||0);
     if(sx||sy||sz) m.scale.set(sx||1,sy||1,sz||1);
-    g.add(m); return m;
+    m.castShadow = true; g.add(m); return m;
   }
+  function gloss(m,r,mt){ m.material.roughness=r; m.material.metalness=mt||0; return m; }
+  function lathe(pts,seg){ return new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg||28); }
+  function ruffle(geo,k,amp){
+    const p=geo.attributes.position;
+    for(let i=0;i<p.count;i++){ const x=p.getX(i),z=p.getZ(i); p.setY(i,p.getY(i)+Math.sin(Math.atan2(z,x)*k)*amp*Math.hypot(x,z)); }
+    geo.computeVertexNormals(); return geo;
+  }
+  function radial(g,n,fn){ for(let i=0;i<n;i++){ const s=new THREE.Group(); s.rotation.y=i/n*Math.PI*2; fn(s,i); g.add(s); } }
   function makeModel(id){
     const g = new THREE.Group();
     if(id==='pan'){
-      addPart(g,new THREE.BoxGeometry(0.8,0.34,0.6),0xe3b67a,0,-0.08);
-      addPart(g,new THREE.SphereGeometry(0.42,12,8,0,Math.PI*2,0,Math.PI/2),0xf3cf9c,0,0.11,0,0,0,0,1,0.55,1);
+      addPart(g,lathe([[0,-0.2],[0.44,-0.2],[0.48,-0.14],[0.48,-0.04],[0.44,0],[0,0]]),0xefc58a);
+      addPart(g,new THREE.CylinderGeometry(0.45,0.45,0.03,28),0xfff1c9,0,0.01);
+      addPart(g,lathe([[0,0.02],[0.5,0.02],[0.53,0.1],[0.46,0.28],[0.3,0.4],[0,0.45]]),0xd9892f);
+      for(let i=0;i<14;i++){
+        const a=i*2.4, r=0.05+0.3*Math.sqrt(i/14), h=0.02+0.43*Math.sqrt(Math.max(0,1-(r/0.53)*(r/0.53)));
+        addPart(g,new THREE.SphereGeometry(0.03,6,5),0xfff3cf,Math.cos(a)*r,h+0.01,Math.sin(a)*r,0,a,0,1,0.5,1.7);
+      }
     } else if(id==='tomate'){
-      addPart(g,new THREE.SphereGeometry(0.42,14,14),0xdc2626);
-      addPart(g,new THREE.ConeGeometry(0.1,0.18,6),0x16a34a,0,0.46);
+      gloss(addPart(g,new THREE.SphereGeometry(0.43,28,22),0xdc2626,0,0,0,0,0,0,1,0.88,1),0.22);
+      radial(g,5,s=>addPart(s,new THREE.ConeGeometry(0.05,0.24,4),0x15803d,0.1,0.38,0,0,0,-1.25));
+      addPart(g,new THREE.CylinderGeometry(0.025,0.03,0.12,8),0x166534,0,0.43);
     } else if(id==='queso'){
-      const w = addPart(g,new THREE.CylinderGeometry(0.5,0.5,0.35,3),0xfacc15);
-      w.rotation.z = Math.PI/2; w.rotation.y = Math.PI/7;
-      addPart(g,new THREE.SphereGeometry(0.06,8,8),0xd4a81a,0.1,0.08,0.15);
-      addPart(g,new THREE.SphereGeometry(0.05,8,8),0xd4a81a,-0.08,-0.05,0.1);
+      const sh=new THREE.Shape(); sh.moveTo(-0.55,-0.25); sh.lineTo(0.55,-0.25); sh.lineTo(0.55,0); sh.lineTo(-0.55,0.3); sh.closePath();
+      const eg=new THREE.ExtrudeGeometry(sh,{depth:0.7,bevelEnabled:true,bevelSize:0.03,bevelThickness:0.03,bevelSegments:2}); eg.translate(0,0,-0.35);
+      gloss(addPart(g,eg,0xfcd34d),0.4);
+      [[-0.25,0,0.4,0.09],[0.2,-0.1,0.4,0.07],[0.3,0.1,0.4,0.05],[-0.05,0.18,0.4,0.05]].forEach(h=>
+        addPart(g,new THREE.SphereGeometry(h[3],10,8),0xd49a0a,h[0],h[1],h[2],0,0,0,1,1,0.35));
+      addPart(g,new THREE.SphereGeometry(0.06,8,8),0xd49a0a,0.56,-0.1,0.1,0,0,0,0.4,1,1);
     } else if(id==='lechuga'){
-      addPart(g,new THREE.SphereGeometry(0.5,10,8),0x3f9142,0,-0.12,0,0,0,0,1,0.3,1);
-      addPart(g,new THREE.SphereGeometry(0.4,10,8),0x4ade80,0,0,0,0,0.5,0,1,0.3,1);
-      addPart(g,new THREE.SphereGeometry(0.3,10,8),0x86efac,0,0.1,0,0,1,0,1,0.3,1);
+      [[0.52,0x2f8f3a,0,0],[0.44,0x4cb34f,0.5,0.1],[0.36,0x7bd36c,1,0.2],[0.26,0xb4eb9a,1.6,0.3]].forEach((l,i)=>
+        gloss(addPart(g,ruffle(new THREE.SphereGeometry(l[0],28,10,0,Math.PI*2,0,Math.PI/2.4),7+i,0.18),l[1],0,l[3]-0.15,0,0,l[2],0,1,0.55,1),0.45));
     } else if(id==='carne'){
-      addPart(g,new THREE.CylinderGeometry(0.42,0.42,0.22,16),0x8a5a44);
-      addPart(g,new THREE.BoxGeometry(0.6,0.02,0.06),0x4a2f22,0,0.12,0.1);
-      addPart(g,new THREE.BoxGeometry(0.6,0.02,0.06),0x4a2f22,0,0.12,-0.1);
+      gloss(addPart(g,new THREE.CylinderGeometry(0.44,0.4,0.2,28),0x5a3220),0.9);
+      addPart(g,new THREE.TorusGeometry(0.42,0.07,10,28),0x6e3d27,0,0.1,0,Math.PI/2);
+      addPart(g,new THREE.CylinderGeometry(0.42,0.42,0.04,28),0x7a4630,0,0.11);
+      [-0.18,0,0.18].forEach(o=>addPart(g,new THREE.BoxGeometry(0.8,0.02,0.05),0x2a140c,o*0.7,0.135,o*0.7,0,0.8,0));
+      for(let i=0;i<12;i++){ const a=i*2.1, r=0.05+0.33*Math.sqrt(i/12);
+        addPart(g,new THREE.SphereGeometry(0.035,6,6),i%2?0x8a5238:0x4a2616,Math.cos(a)*r,0.13,Math.sin(a)*r,0,0,0,1,0.5,1); }
     } else if(id==='huevo'){
-      addPart(g,new THREE.SphereGeometry(0.46,14,10),0xfff7ed,0,-0.1,0,0,0,0,1,0.25,1);
-      addPart(g,new THREE.SphereGeometry(0.18,12,12),0xfacc15,0,0.04,0,0,0,0,1,0.55,1);
+      const sh=new THREE.Shape();
+      for(let i=0;i<=40;i++){ const a=i/40*Math.PI*2, r=0.52+Math.sin(a*3)*0.07+Math.sin(a*5+1)*0.04, x=Math.cos(a)*r*1.05, y=Math.sin(a)*r*0.9; i?sh.lineTo(x,y):sh.moveTo(x,y); }
+      gloss(addPart(g,new THREE.ExtrudeGeometry(sh,{depth:0.05,bevelEnabled:true,bevelSize:0.03,bevelThickness:0.03,bevelSegments:3}),0xfffdf5,0,-0.15,0,-Math.PI/2),0.15);
+      gloss(addPart(g,new THREE.SphereGeometry(0.2,24,16),0xffb703,-0.04,-0.05,0.02,0,0,0,1,0.65,1),0.12);
+      addPart(g,new THREE.SphereGeometry(0.04,8,8),0xffffff,-0.1,0.05,-0.05,0,0,0,1,0.5,1);
     } else if(id==='pepino'){
-      const b = addPart(g,new THREE.CylinderGeometry(0.28,0.28,0.9,14),0x16a34a);
-      b.rotation.z = Math.PI/2;
-      const s = addPart(g,new THREE.BoxGeometry(0.9,0.06,0.08),0x86efac);
-      s.rotation.z = Math.PI/2; s.position.y = 0.26;
+      const pr=[[0,-0.46]]; for(let i=0;i<=16;i++){ const t=i/16; pr.push([0.25*Math.pow(Math.sin(Math.PI*(0.03+0.94*t)),0.35),-0.46+0.92*t]); } pr.push([0,0.46]);
+      gloss(addPart(g,lathe(pr,24),0x1f7a34,0,0,0,0,0,Math.PI/2),0.35);
+      for(let i=0;i<16;i++){ const x=-0.32+(i%8)*0.09, a=i*1.7;
+        addPart(g,new THREE.SphereGeometry(0.022,6,6),0xa7e8a0,x,0.25*Math.cos(a),0.25*Math.sin(a)); }
+      const sl=new THREE.Group();
+      addPart(sl,new THREE.CylinderGeometry(0.27,0.27,0.07,24),0x1f7a34);
+      addPart(sl,new THREE.CylinderGeometry(0.23,0.23,0.08,24),0xd9f2b0);
+      for(let i=0;i<6;i++) addPart(sl,new THREE.SphereGeometry(0.025,6,6),0xfff7d6,Math.cos(i*1.05)*0.11,0.045,Math.sin(i*1.05)*0.11);
+      sl.rotation.x=Math.PI/2; sl.position.set(0.1,-0.02,0.4); g.add(sl);
+    } else if(id==='cebolla'){
+      const og=lathe([[0,-0.42],[0.2,-0.4],[0.42,-0.25],[0.5,-0.02],[0.42,0.25],[0.2,0.42],[0.07,0.55],[0,0.6]],32);
+      const op=og.attributes.position, c1=new THREE.Color(0x9b2d86), c2=new THREE.Color(0xe9a8dc), col=[];
+      for(let i=0;i<op.count;i++){ const c=c1.clone().lerp(c2,(0.5+0.5*Math.sin(Math.atan2(op.getZ(i),op.getX(i))*10))*0.7); col.push(c.r,c.g,c.b); }
+      og.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+      const o=new THREE.Mesh(og,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.4})); o.castShadow=true; g.add(o);
+      addPart(g,new THREE.ConeGeometry(0.05,0.14,8),0xcaa472,0,0.64);
+      radial(g,8,s=>addPart(s,new THREE.CylinderGeometry(0.008,0.008,0.14,4),0xe8dcc0,0.04,-0.47,0,0,0,-0.5));
+    } else if(id==='pollo'){
+      const d=new THREE.Group();
+      gloss(addPart(d,new THREE.SphereGeometry(0.4,24,18),0xc9731f,-0.1,0,0,0,0,0,1.1,0.9,0.9),0.35);
+      gloss(addPart(d,new THREE.SphereGeometry(0.3,20,14),0xb8601a,0.2,0,0,0,0,0,1.2,0.9,0.9),0.35);
+      addPart(d,new THREE.CylinderGeometry(0.07,0.09,0.55,10),0xf5efe0,0.62,0,0,0,0,Math.PI/2);
+      addPart(d,new THREE.SphereGeometry(0.1,10,10),0xf5efe0,0.9,0.07,0.04);
+      addPart(d,new THREE.SphereGeometry(0.1,10,10),0xf5efe0,0.9,-0.07,0.04);
+      for(let i=0;i<10;i++){ const a=i*2.4; addPart(d,new THREE.SphereGeometry(0.045,6,6),0xe39a42,-0.2+0.45*Math.cos(a)*0.6,0.3*Math.sin(a*1.3),0.3*Math.cos(a*1.3)*0.9); }
+      d.rotation.z=0.5; d.position.x=-0.2; d.scale.setScalar(0.85); g.add(d);
     } else {
-      addPart(g,new THREE.SphereGeometry(0.46,14,14),0xea580c,0,0,0,0,0,0,1,1.15,1);
-      addPart(g,new THREE.CylinderGeometry(0.06,0.1,0.22,6),0x16a34a,0,0.55);
+      const gp=new THREE.SphereGeometry(0.46,28,22), p=gp.attributes.position;
+      for(let i=0;i<p.count;i++){ const x=p.getX(i),y=p.getY(i),z=p.getZ(i), k=1+0.1*Math.cos(Math.atan2(z,x)*3)*(1-Math.abs(y)/0.5); p.setX(i,x*k); p.setZ(i,z*k); }
+      gp.computeVertexNormals();
+      gloss(addPart(g,gp,0xf97316,0,0,0,0,0,0,1,1.1,1),0.2);
+      addPart(g,new THREE.SphereGeometry(0.16,14,8,0,Math.PI*2,0,Math.PI/2),0x15803d,0,0.47,0,0,0,0,1,0.5,1);
+      addPart(g,new THREE.CylinderGeometry(0.05,0.07,0.2,8),0x166534,0.03,0.6,0,0,0,-0.25);
     }
     return g;
   }
@@ -225,7 +282,15 @@
     addPart(g,new THREE.SphereGeometry(0.4,14,10,0,Math.PI*2,0,Math.PI/2.1),hair,0,1.44,0,0,0,0,1,0.8,1);
     addPart(g,new THREE.SphereGeometry(0.06,8,8),0x1c1210,-0.14,1.4,0.34);
     addPart(g,new THREE.SphereGeometry(0.06,8,8),0x1c1210,0.14,1.4,0.34);
-    addPart(g,new THREE.BoxGeometry(0.16,0.04,0.03),0x7a3b2e,0,1.21,0.37);
+    addPart(g,new THREE.TorusGeometry(0.1,0.017,6,14,Math.PI),0x7a3b2e,0,1.25,0.36,0,0,Math.PI);
+    addPart(g,new THREE.SphereGeometry(0.07,8,8),skin,0,1.32,0.38,0,0,0,1,1,0.8);
+    [-1,1].forEach(sd=>{
+      addPart(g,new THREE.SphereGeometry(0.08,10,10),0xffffff,sd*0.14,1.4,0.31);
+      addPart(g,new THREE.SphereGeometry(0.1,8,8),skin,sd*0.38,1.35,0,0,0,0,0.5,1,0.6);
+      addPart(g,new THREE.BoxGeometry(0.13,0.025,0.03),hair,sd*0.14,1.5,0.35);
+      addPart(g,new THREE.SphereGeometry(0.075,10,10),skin,sd*0.43,0.44,0);
+    });
+    addPart(g,new THREE.CylinderGeometry(0.12,0.14,0.14,10),skin,0,1.08);
     if(vip) addPart(g,new THREE.ConeGeometry(0.22,0.22,5),0xfde047,0,1.82);
     g.userData.vip = !!vip;
     return g;
@@ -352,8 +417,10 @@
 
   function newOrder(){
     const vip = customer.userData.vip;
-    const base = RECIPES[Math.floor(Math.random()*RECIPES.length)];
-    order = [...base]; done = [];
+    let cnt = Math.min(6, 2 + Math.floor(Math.random()*2) + Math.floor(Math.floor(score/100)/2));
+    const t0 = Math.floor(score/100);
+    if(t0>=1 && Math.random() < Math.min(0.2, 0.05 + t0*0.02)) cnt = 7;
+    order = ING.map(i=>i.id).sort(()=>Math.random()-0.5).slice(0,cnt); done = [];
     orderPanel.innerHTML='';
     const av = document.createElement('span'); av.className='cust-avatar';
     av.textContent = vip ? '👑' : '🙂';
@@ -367,9 +434,9 @@
     const tier = Math.floor(score/100);
     level = tier+1;
     levelEl.textContent = 'Nivel '+level;
-    if(tier>lastTier && lastTier>=0) toast('🔥 ¡Nivel '+level+'! Todo más rápido');
+    if(tier>lastTier && lastTier>=0) toast('🔥 ¡Nivel '+level+'! más ingredientes y menos tiempo');
     lastTier = tier;
-    maxTime = Math.max(vip?4:6, (vip?13:18) - tier*1.4);
+    maxTime = (1.7 + order.length*Math.max(1,1.9-tier*0.07)) * (vip?0.85:1);
     timeLeft = maxTime;
     busy = false;
     beep(vip?880:660, vip?0.18:0.12, vip?'triangle':'sine');
@@ -387,15 +454,19 @@
       combo++;
       const mult = customer.userData.vip ? 2 : 1;
       score += (10 + combo*2) * mult;
-      timeLeft = Math.min(maxTime, timeLeft + 1);
+      timeLeft = Math.min(maxTime, timeLeft + 0.5);
       comboEl.textContent = combo>1 ? 'x'+combo : '';
       scoreEl.textContent = '⭐ '+score;
       if(done.length===order.length) serveOrder();
     } else {
       combo = 0; comboEl.textContent='';
-      timeLeft = Math.max(0, timeLeft - 1.5);
+      timeLeft = Math.max(0.3, timeLeft - 0.5);
       if(navigator.vibrate) navigator.vibrate(60);
       beep(180,0.1,'square');
+      lives = Math.max(0, lives-1); renderLives();
+      reactCustomer(false);
+      if(lives<=0){ busy = true; done.forEach(id=>homeMesh(meshes[id])); setTimeout(gameOver, 500); return; }
+      toast('❌ Ingrediente equivocado: -1 ❤️');
     }
   }
 
