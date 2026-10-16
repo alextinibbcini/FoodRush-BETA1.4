@@ -72,6 +72,9 @@
   #overlay-card button { font-size:17px; font-weight:800; padding:12px 26px; border-radius:12px;
     border:none; background:var(--accent); color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.25); }
   #overlay-card button:active { transform:translateY(2px); box-shadow:none; }
+  #diffRow { display:flex; gap:6px; margin-bottom:14px; }
+  #overlay-card .diff-btn { flex:1; font-size:13px; padding:9px 2px; box-shadow:none; background:var(--bg2); color:var(--text); border:2px solid var(--border); }
+  #overlay-card .diff-btn.sel { background:var(--accent); color:#fff; border-color:var(--accent); }
   .best { font-size:13px; color:var(--accent2); font-weight:700; margin-top:10px; }
 </style>
 </head>
@@ -96,6 +99,7 @@
   <div id="overlay-card">
     <h1>👨‍🍳 Chef Contrarreloj 3D</h1>
     <p>Arma el plato que pide cada cliente antes de que se le acabe la paciencia. Los clientes VIP 👑 pagan el doble, pero aguantan menos. Los pedidos crecen poco a poco con cada nivel. ¡Tienes 3 vidas!</p>
+    <div id="diffRow"></div>
     <button id="startBtn">Empezar a cocinar</button>
     <div class="best" id="bestScore"></div>
   </div>
@@ -512,7 +516,7 @@
   function tick(){
     if(!running) return;
     if(!busy){
-      timeLeft -= 0.09 + Math.min(0.03, level*0.004);
+      timeLeft -= (0.09 + Math.min(0.03, level*0.004)) * diffMul;
       const pct = Math.max(0,timeLeft/maxTime);
       timerbar.style.width = (pct*100)+'%';
       timerbar.style.background = pct<0.25 ? 'var(--danger)' : 'var(--accent)';
@@ -542,11 +546,24 @@
     overlay.classList.remove('hidden');
     document.getElementById('overlay-card').innerHTML =
       '<h1>🚪 ¡Cerraste el restaurante por inteligente!</h1><p>Puntaje: <strong>'+score+'</strong></p>'+
-      '<button id="startBtn">Abrir de nuevo</button>'+
+      '<div id="diffRow"></div><button id="startBtn">Abrir de nuevo</button>'+
       '<div class="best">Mejor puntaje: '+best+'</div>';
+    renderDiff();
     document.getElementById('startBtn').addEventListener('click', startGame);
   }
 
+  const DIFFS = [{k:'facil',n:'😊 Fácil',m:0.55},{k:'medio',n:'😎 Medio',m:1},{k:'extremo',n:'🔥 Extremo',m:1.7}];
+  let diffMul = 1, diffKey = 'medio';
+  function renderDiff(){
+    const r = document.getElementById('diffRow'); r.innerHTML='';
+    DIFFS.forEach(d=>{
+      const b = document.createElement('button');
+      b.className = 'diff-btn'+(d.k===diffKey?' sel':''); b.textContent = d.n;
+      b.addEventListener('click', ()=>{ diffKey=d.k; diffMul=d.m; renderDiff(); });
+      r.appendChild(b);
+    });
+  }
+  renderDiff();
   document.getElementById('startBtn').addEventListener('click', startGame);
 })();
 </script>
